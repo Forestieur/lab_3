@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_typing_uninitialized_variables, avoid_print, unnecessary_this
+// ignore_for_file: prefer_typing_uninitialized_variables, avoid_print, unnecessary_this, no_logic_in_create_state, prefer_const_constructors
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -297,6 +297,7 @@ class _ItemPageState extends State<ItemPage> {
           title: cntTitle.text,
           level: cntLevel.text);
     }
+    // ignore: unnecessary_type_check
     if (_item is Memo) {
       return Memo(
           details: cntDetails.text, title: cntTitle.text, level: cntLevel.text);
@@ -312,23 +313,25 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: HomePage(title: 'Simple notes'),
+      home: const HomePage(title: 'Simple notes'),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  HomePage({Key? key, this.title = ""}) : super(key: key);
+  const HomePage({Key? key, this.title = ""}) : super(key: key);
   final String title;
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  TextEditingController editingController = TextEditingController();
+  bool _searchBoolean = false; //add
+  List<int> _searchIndexList = []; //add
 
   var notes = Notes();
   showItem(item) async {
@@ -375,31 +378,97 @@ class _HomePageState extends State<HomePage> {
   }
 
   _HomePageState();
+
   @override
   void initState() {
     super.initState();
     (notes.load()).whenComplete(() => setState(() {}));
   }
 
+  Widget _searchTextField() {
+    return TextField(
+        onChanged: (String smth) {
+          //add
+          setState(() {
+            _searchIndexList = [];
+            for (int i = 0; i < notes.count; i++) {
+              if (notes.items[i].title.contains(smth) ||
+                  notes.items[i].level.contains(smth) ||
+                  (notes.items[i] as Memo).details.contains(smth)) {
+                _searchIndexList.add(i);
+              }
+            }
+          });
+        },
+        autofocus: true, //Display the keyboard when TextField is displayed
+        cursorColor: Colors.white,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+        ),
+        textInputAction:
+            TextInputAction.search, //Specify the action button on the keyboard
+        decoration: InputDecoration(
+          //Style of TextField
+          enabledBorder: UnderlineInputBorder(
+              //Default TextField border
+              borderSide: BorderSide(color: Colors.white)),
+          focusedBorder: UnderlineInputBorder(
+              //Borders when a TextField is in focus
+              borderSide: BorderSide(color: Colors.white)),
+          hintText: 'Search', //Text that is displayed when nothing is entered.
+          hintStyle: TextStyle(
+            //Style of hintText
+            color: Colors.white60,
+            fontSize: 20,
+          ),
+        ));
+  }
+
   searching() {}
+  Widget _searchListView() {
+    return ListView.builder(
+        itemCount: _searchIndexList.length,
+        itemBuilder: (context, index) {
+          index = _searchIndexList[index];
+          return Card(
+              child: ListTile(
+                  title: Text(notes.items[index].title),
+                  subtitle: Text(notes.items[index].level)));
+        });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          actions: [
-            // Navigate to the Search Screen
-            IconButton(
-                onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SearchPage())),
-                icon: const Icon(Icons.search))
-          ],
-        ),
-        body: ListView.separated(
-          separatorBuilder: (context, index) => const Divider(),
-          itemCount: notes.count,
-          itemBuilder: (context, i) => listItem(i, context),
-        ),
+            title: !_searchBoolean ? Text(widget.title) : _searchTextField(),
+            actions: !_searchBoolean
+                ? [
+                    IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () {
+                          setState(() {
+                            _searchBoolean = true;
+                          });
+                        })
+                  ]
+                : [
+                    IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchBoolean = false;
+                          });
+                        })
+                  ]),
+        body: !_searchBoolean
+            ? ListView.separated(
+                separatorBuilder: (context, index) => const Divider(),
+                itemCount: notes.count,
+                itemBuilder: (context, i) => listItem(i, context),
+              )
+            : _searchListView(),
         drawer: Drawer(
             child: ListView(
           //itemExtent: 40.0,
@@ -477,38 +546,6 @@ class _HomePageState extends State<HomePage> {
             )
           ])
         ]));
-  }
-}
-
-class SearchPage extends StatelessWidget {
-  const SearchPage({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-          // The search area here
-          title: Container(
-        width: double.infinity,
-        height: 40,
-        decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(5)),
-        child: Center(
-          child: TextField(
-            decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.clear),
-                  onPressed: () {
-                    /* Clear the search field */
-                  },
-                ),
-                hintText: 'Search...',
-                border: InputBorder.none),
-          ),
-        ),
-      )),
-    );
   }
 }
 
