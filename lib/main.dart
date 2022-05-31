@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:get/get.dart';
 
 ///////// Data classes
 class Note {
@@ -37,21 +38,6 @@ class Memo extends Note {
 
 mixin Check {
   bool done = false;
-}
-
-class Todo extends Memo with Check {
-  Todo({isDone = false, details = '', title = '', level = 'none'})
-      : super(title: title, level: level) {
-    done = isDone;
-  }
-  @override
-  update(other) {
-    super.update(other);
-    this.done = other.done;
-  }
-
-  @override
-  toString() => "todo||$done||$title||$level||$details";
 }
 
 //TODO class Event extend Todo with Date
@@ -89,17 +75,13 @@ class Notes {
   load() async {
     //TODO load from file
     final directory = await getApplicationDocumentsDirectory();
-    print("load from $directory");
     final file = File(directory.path + "/notes.json");
+    print("load from $file");
     items.clear();
     for (String x in file.readAsLinesSync()) {
       print(x);
       var s = x.split("||");
       switch (s[0]) {
-        case "todo":
-          items.add(Todo(
-              isDone: s[1] == "true", title: s[2], level: s[3], details: s[4]));
-          break;
         case "memo":
           items.add(Memo(title: s[1], level: s[2], details: s[3]));
       }
@@ -110,8 +92,9 @@ class Notes {
   save() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
-      print("save to $directory");
       final file = File(directory.path + "/notes.json");
+      print("save to $file");
+
       if (!file.existsSync()) {
         file.create();
       }
@@ -129,13 +112,16 @@ class Notes {
   }
 
   add<T extends Note>() {
-    final factories = <Type, Function>{Memo: () => Memo(), Todo: () => Todo()};
+    final factories = <Type, Function>{
+      Memo: () => Memo(),
+    };
     final one = (factories[T]!)();
     items.add(one);
     return one;
   }
 
   sorting(String type) {
+    // var tryP(x) => int.tryParse(x)
     if (type == "Title") {
       items.sort((a, b) =>
           (int.tryParse(a.title) != null && int.tryParse(b.title) != null)
@@ -175,7 +161,6 @@ class _ItemPageState extends State<ItemPage> {
     cntTitle.text = _item.title;
     cntLevel.text = _item.level;
     cntDetails.text = _item.details;
-    if (_item is Todo) _check = (_item as Todo).done;
   }
   @override
   void dispose() {
@@ -242,16 +227,6 @@ class _ItemPageState extends State<ItemPage> {
       body: Center(
         child: Column(
           children: [
-            if (_item is Todo)
-              CheckboxListTile(
-                value: _check,
-                title: const Text("Done"),
-                onChanged: (chk) {
-                  setState(() {
-                    _check = chk!;
-                  });
-                },
-              ),
             TextField(
               controller: cntTitle,
               decoration: const InputDecoration(labelText: 'Title'),
@@ -290,13 +265,6 @@ class _ItemPageState extends State<ItemPage> {
   }
 
   _upd() {
-    if (_item is Todo) {
-      return Todo(
-          isDone: _check,
-          details: cntDetails.text,
-          title: cntTitle.text,
-          level: cntLevel.text);
-    }
     // ignore: unnecessary_type_check
     if (_item is Memo) {
       return Memo(
@@ -311,12 +279,9 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
       home: const HomePage(title: 'Simple notes'),
     );
   }
@@ -353,19 +318,7 @@ class _HomePageState extends State<HomePage> {
 
   listItem(i, context) {
     final one = notes.item(i);
-    if (one is Todo) {
-      return ListTile(
-        leading: Icon(
-          Icons.done,
-          color: one.done ? Colors.lightGreen : Colors.white,
-        ),
-        title: Text(one.title),
-        subtitle: Text(one.level),
-        trailing: Text(one.dateCreate.toString().substring(0, 10)),
-        dense: true,
-        onTap: () => showItem(one),
-      );
-    }
+
     if (one is Memo) {
       return ListTile(
         title: Text(one.title),
@@ -451,6 +404,13 @@ class _HomePageState extends State<HomePage> {
                           setState(() {
                             _searchBoolean = true;
                           });
+                        }),
+                    IconButton(
+                        icon: const Icon(Icons.lightbulb),
+                        onPressed: () {
+                          Get.isDarkMode
+                              ? Get.changeTheme(ThemeData.light())
+                              : Get.changeTheme(ThemeData.dark());
                         })
                   ]
                 : [
@@ -536,14 +496,6 @@ class _HomePageState extends State<HomePage> {
               tooltip: 'new memo item',
               child: const Text('+memo'),
             ),
-            FloatingActionButton(
-              onPressed: () => showItem(notes.add<Todo>()),
-              shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(15.0))),
-              heroTag: 'todo',
-              tooltip: 'new todo item',
-              child: const Text('+todo'),
-            )
           ])
         ]));
   }
